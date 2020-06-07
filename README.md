@@ -7,7 +7,7 @@ made by Rens Moring (0934908@hr.nl)
 * lib.ts -- aggregate all building blocks
 * /lib -- all building blocks
 * /dist -- generated .js by npm run build
-* /samples -- extra code samples to showcase the project
+* /samples -- code samples to showcase the project
 
 #### Available npm scripts:
 * "build": build to /dist,
