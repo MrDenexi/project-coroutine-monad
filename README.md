@@ -1,6 +1,8 @@
 # Project Coroutine Monad
 [Project Coroutine Monad of the minor Software Engineering](https://github.com/hogeschool/Software-Engineering-Minor/blob/master/Projects/project4%20-%20coroutine%20monad.md)
-made by Rens Moring (0934908@hr.nl)
+made by Rens Moring (0934908@hr.nl)  
+
+Install npm packages on first use
 
 #### Folder structure
 * main.ts -- main entrypoint
@@ -14,4 +16,4 @@ made by Rens Moring (0934908@hr.nl)
 * "build:watch": build to dist and watch changes,
 * "main": execute entrypoint /dist/main.js,
 * "main:watch": execute entrypoint /dist/main.js and watch changes,
-* "lint": eslint over .ts fils
+* "lint": run eslint on .ts fils
