@@ -5,8 +5,9 @@ made by Rens Moring (0934908@hr.nl)
 #### Folder structure
 * main.ts -- main entrypoint
 * lib.ts -- aggregate all building blocks
-* /lib -- all building blocks 
+* /lib -- all building blocks
 * /dist -- generated .js by npm run build
+* /samples -- extra code samples to showcase the project
 
 #### Available npm scripts:
 * "build": build to /dist,

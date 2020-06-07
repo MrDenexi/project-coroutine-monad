@@ -1,5 +1,5 @@
 export const coroutine = null
 
-export const hello = 'man'
+export const hello = 'cor'
 console.log(hello)
 
