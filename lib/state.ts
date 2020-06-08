@@ -40,3 +40,9 @@ export const getState = <s>(): State<s, s> =>
 
 export const setState = <s>(s: s): State<s, Unit> =>
   State(_ => ({ fst: {}, snd: s }))
+
+export const repeatState = <s,a>(n:number, f:(_:a) => State<s,a>) : (_:a) => State<s,a> =>
+  (a: a) : State<s,a> =>
+    n == 0 ?
+      unitState<s,a>().f(a) :
+      f(a).bind(a => repeatState(n-1, f)(a))

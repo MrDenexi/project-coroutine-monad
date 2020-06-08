@@ -2,6 +2,8 @@ import { State, Unit } from "../lib"
 
 export default function() : Unit {
   // Trying out the state
+  console.log('\n --- state sample')
+
   type TwoVariableMemory = {
     readonly x:number,
     readonly y:number
@@ -21,7 +23,6 @@ export default function() : Unit {
 
   const myGetVar = getVar<TwoVariableMemory>()
   const mySetVar = setVar<TwoVariableMemory>()
-
 
   const myHelloWorld : State<TwoVariableMemory, Unit> =
     myGetVar("x").bind(x =>
