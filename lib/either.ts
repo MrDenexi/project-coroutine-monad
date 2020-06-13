@@ -39,3 +39,5 @@ export const mapEither = <a, a1, b, b1>(f: Fun<a, a1>, g: Fun<b, b1>): Fun<Eithe
     return inr<a1, b1>().f(newValue)
   })
 }
+
+export const collapseEither = <a>(x:Either<a,a>) : a => x.value
