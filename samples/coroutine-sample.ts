@@ -38,15 +38,13 @@ export default function() : Unit {
     )
   }
 
-  const myCoroutine : Coroutine<Memory,Error,Unit> =
+  const myCoroutine : Coroutine<Memory,Error,number> =
     unitCo<Memory,Error>()<Unit>({})
       .bind((_:Unit) => setVar('x', 23)
-        .bind((_:Unit) => setVar('y', 24)
+        .bind((_:Unit) => setVar('y', 999)
           .bind((_:Unit) => suspend<Memory,Error>()
             .bind((_:Unit) => safeGetVar('x')
-              .bind((_:number) => forceGetVar('y', 12)
-                .bind((_:number) => suspend())
-              )
+              .bind((_:number) => forceGetVar('q', 12890))
             )
           )
         )
