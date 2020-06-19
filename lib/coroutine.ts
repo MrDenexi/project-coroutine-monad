@@ -26,6 +26,8 @@ export type Coroutine<s,e,a> ={
   // eslint-disable-next-line functional/no-mixed-type
   readonly bind: <b>( f:((x: a) => Coroutine<s,e,b>)) => Coroutine<s,e,b>,
   readonly bindF: <b>(f: Fun<a,Coroutine<s,e,b>>) => Coroutine<s,e,b>,
+  readonly concurrent: (cor: Coroutine<s,e,a>) => Coroutine<s,e,a>
+  readonly parallel: <b>(cor: Coroutine<s,e,b>) => Coroutine<s,e,Pair<a,b>>
 }
 
 export const Coroutine = <s,e,a>(f: (s:s) => CoStep<s,e,a>) : Coroutine<s,e,a> => ({
@@ -35,6 +37,12 @@ export const Coroutine = <s,e,a>(f: (s:s) => CoStep<s,e,a>) : Coroutine<s,e,a> =
   },
   bindF: function<b>(this: Coroutine<s,e,a>, f: Fun<a,Coroutine<s,e,b>>) : Coroutine<s,e,b> {
     return bindCo<s,e>()(f).f(this)
+  },
+  concurrent: function(this: Coroutine<s,e,a>, cor: Coroutine<s,e,a>) : Coroutine<s,e,a> {
+    return any(this, cor)
+  },
+  parallel: function<b>(this:Coroutine<s,e,a>, cor: Coroutine<s,e,b>) : Coroutine<s,e,Pair<a,b>> {
+    return all(this, cor)
   }
 })
 
@@ -123,4 +131,66 @@ export const tryCatch = <s,e,a>(body: Coroutine<s,e,a>, onError:(_:e) => Corouti
 
 export const suspend = <s,e>() : Coroutine<s,e,Unit> =>
   Coroutine((s0: s) => coStepContinuation(s0))
+
+const any = <s,e,a>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,a>) : Coroutine<s,e,a> =>
+  Coroutine((s:s) : CoStep<s,e,a> => {
+    // set output1
+    const o1 = c1.fun.f(s)
+
+    // continuation
+    if (o1.kind === "left" && o1.value.kind === "right") {
+      const o1Continuation = o1.value.value
+      return any(c2, o1Continuation.fst).fun.f(o1Continuation.snd)
+    }
+
+    // error or result
+    return o1
+  })
+
+const all = <s,e,a,b>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,b>) : Coroutine<s,e,Pair<a,b>> =>
+  Coroutine((s0:s) : CoStep<s,e,Pair<a,b>> => {
+    // set output1
+    const o1 = c1.fun.f(s0)
+
+    // result or continuation
+    if (o1.kind === "left") {
+      const o1Left = o1.value
+
+      // result
+      if (o1Left.kind === "left") {
+        const o1Result = o1Left.value
+
+        // force o2 result
+        const o2 = c2.bind<b>((x:b) => unitCo<s,e>()<b>(x)).fun.f(o1Result.snd)
+
+        // o2 error
+        if (o2.kind === "right") {
+          return o2
+        }
+
+        // I'm really sure unitCo spits out a result
+        // so i'm allowed to typecast that
+        const o2Result = o2.value.value as CoResult<s,b>
+
+        return coStepResult(
+          o2Result.snd,
+          Pair(o1Result.fst, o2Result.fst)
+        )
+      } else {
+        // continuation
+        const o1Continuation = o1Left.value
+
+        // run all() again in reverse order
+        // and switch back pair on result
+        return all<s,e,b,a>(c2, o1Continuation.fst)
+          .bind((p: Pair<b,a>) => Coroutine(s => coStepResult<s,e,Pair<a,b>>(s, {fst: p.snd, snd: p.fst})))
+          .fun.f(o1Continuation.snd)
+      }
+    } else {
+      // error
+      return o1
+    }
+  })
+
+
 
