@@ -102,10 +102,10 @@ export const coStepResult = <s,e,a>(s: s, x: a) : CoStep<s,e,a> =>
     inl<CoResult<s,a>, CoContinuation<s,e,a>>().f({ fst:x, snd:s})
   )
 
-export const coStepContinuation = <s,e>(s: s) : CoStep<s,e,Unit> =>
-  inl<CoLeft<s,e,Unit>, e>().f(
-    inr<CoResult<s,Unit>, CoContinuation<s,e,Unit>>().f({
-      fst: unitCo<s,e>()<Unit>({}),
+export const coStepContinuation = <s,e,a>(s: s, c: Coroutine<s,e,a>) : CoStep<s,e,a> =>
+  inl<CoLeft<s,e,a>, e>().f(
+    inr<CoResult<s,a>, CoContinuation<s,e,a>>().f({
+      fst: c,
       snd: s
     })
   )
@@ -130,9 +130,9 @@ export const tryCatch = <s,e,a>(body: Coroutine<s,e,a>, onError:(_:e) => Corouti
   })
 
 export const suspend = <s,e>() : Coroutine<s,e,Unit> =>
-  Coroutine((s0: s) => coStepContinuation(s0))
+  Coroutine((s0: s) => coStepContinuation(s0, unitCo<s,e>()({})))
 
-const any = <s,e,a>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,a>) : Coroutine<s,e,a> =>
+export const any = <s,e,a>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,a>) : Coroutine<s,e,a> =>
   Coroutine((s:s) : CoStep<s,e,a> => {
     // set output1
     const o1 = c1.fun.f(s)
@@ -147,7 +147,7 @@ const any = <s,e,a>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,a>) : Coroutine<s,
     return o1
   })
 
-const all = <s,e,a,b>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,b>) : Coroutine<s,e,Pair<a,b>> =>
+export const all = <s,e,a,b>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,b>) : Coroutine<s,e,Pair<a,b>> =>
   Coroutine((s0:s) : CoStep<s,e,Pair<a,b>> => {
     // set output1
     const o1 = c1.fun.f(s0)
@@ -168,8 +168,8 @@ const all = <s,e,a,b>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,b>) : Coroutine<
           return o2
         }
 
-        // I'm really sure unitCo spits out a result
-        // so i'm allowed to typecast that
+        // I am really sure unitCo spits out a result
+        // so hereby i am allowed to typecast that
         const o2Result = o2.value.value as CoResult<s,b>
 
         return coStepResult(
@@ -182,9 +182,16 @@ const all = <s,e,a,b>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,b>) : Coroutine<
 
         // run all() again in reverse order
         // and switch back pair on result
-        return all<s,e,b,a>(c2, o1Continuation.fst)
-          .bind((p: Pair<b,a>) => Coroutine(s => coStepResult<s,e,Pair<a,b>>(s, {fst: p.snd, snd: p.fst})))
-          .fun.f(o1Continuation.snd)
+        const switchResult = mapCo<s,e>()(Fun<Pair<b,a>,Pair<a,b>>((p: Pair<b,a>) => ({fst: p.snd, snd: p.fst})))
+
+        return switchResult.f(
+          all<s,e,b,a>(c2, o1Continuation.fst)
+        ).fun.f(o1Continuation.snd)
+
+        // this also works
+        // return all<s,e,b,a>(c2, o1Continuation.fst)
+        //   .bind((p: Pair<b,a>) => Coroutine(s => coStepResult<s,e,Pair<a,b>>(s, {fst: p.snd, snd: p.fst})))
+        //   .fun.f(o1Continuation.snd)
       }
     } else {
       // error
@@ -192,5 +199,49 @@ const all = <s,e,a,b>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,b>) : Coroutine<
     }
   })
 
+const repeatUntil = <s,e,a>(predicate : ((_:s) => boolean), cor : Coroutine<s,e,a>) : Coroutine<s,e,a> =>
+  Coroutine( (s0:s) => {
+    const ran = cor.fun.f(s0)
+    if (ran.kind == "left") {
+      const ranLeft = ran.value
+      if (ranLeft.kind == "left") {
+        const ranResult = ranLeft.value
+        // return result or repeat result
+        return predicate(ranResult.snd) ? ran : repeatUntil(predicate, cor).fun.f(ranResult.snd)
+      } else {
+        // repeat continuation always
+        const ranContinuation = ranLeft.value
+        return repeatUntil(predicate, ranContinuation.fst).fun.f(ranContinuation.snd)
+      }
+    } else {
+      // error
+      return ran
+    }
+  })
+
+
+const _do = <s,e>(f : ((_:s) => s)) : Coroutine<s,e,Unit> =>
+  Coroutine<s,e,Unit>(s => coStepResult(f(s), {}))
+
+type Waitable  = {readonly wait : number}
+
+const wait = <s extends Waitable,e>(sec : number) : Coroutine<s,e,Unit> =>
+  Coroutine<s,e,Unit>(s0 => coStepResult({...s0, wait: sec * 1000}, {}))
+    .bind<Unit>( (_: Unit) => checkWait())
+
+const checkWait = <s extends Waitable, e>() : Coroutine<s,e,Unit> =>
+  Coroutine((s:s) : CoStep<s,e,Unit> =>
+    s['wait'] > Date.now() ? coStepResult({...s, wait: 0}, {}) : coStepContinuation(s, checkWait())
+  )
+
+type WaitableCounter = Waitable & { readonly Counter: number}
+const waitableCounter : WaitableCounter = {wait: 0, Counter: 0}
+
+// -- from project description
+repeatUntil<WaitableCounter, string, Unit>(s => s.Counter > 10,
+  wait<WaitableCounter,string>(5).bind(() =>
+    _do(s => ({...s, Counter:s.Counter+1}))
+  )
+).fun.f(waitableCounter)
 
 
