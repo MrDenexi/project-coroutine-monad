@@ -161,7 +161,9 @@ export const all = <s,e,a,b>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,b>) : Cor
         const o1Result = o1Left.value
 
         // force o2 result
-        const o2 = c2.bind<b>((x:b) => unitCo<s,e>()<b>(x)).fun.f(o1Result.snd)
+        const o2 = c2.bind<b>(
+          (x:b) => unitCo<s,e>()<b>(x)
+        ).fun.f(o1Result.snd)
 
         // o2 error
         if (o2.kind === "right") {
@@ -182,7 +184,11 @@ export const all = <s,e,a,b>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,b>) : Cor
 
         // run all() again in reverse order
         // and switch back pair on result
-        const switchResult = mapCo<s,e>()(Fun<Pair<b,a>,Pair<a,b>>((p: Pair<b,a>) => ({fst: p.snd, snd: p.fst})))
+        const switchResult = mapCo<s,e>()(
+          Fun<Pair<b,a>,Pair<a,b>>(
+            (p: Pair<b,a>) => ({fst: p.snd, snd: p.fst})
+          )
+        )
 
         return switchResult.f(
           all<s,e,b,a>(c2, o1Continuation.fst)
@@ -225,23 +231,43 @@ const _do = <s,e>(f : ((_:s) => s)) : Coroutine<s,e,Unit> =>
 
 type Waitable  = {readonly wait : number}
 
-const wait = <s extends Waitable,e>(sec : number) : Coroutine<s,e,Unit> =>
-  Coroutine<s,e,Unit>(s0 => coStepResult({...s0, wait: sec * 1000}, {}))
+const wait = <s extends Waitable,e>(sec : number) : Coroutine<s,e,Unit> => {
+  console.log('start wait')
+  return Coroutine<s,e,Unit>(s0 => coStepResult({...s0, wait: (Date.now() + sec * 1000)}, {}))
     .bind<Unit>( (_: Unit) => checkWait())
+}
 
+// helper function for wait
 const checkWait = <s extends Waitable, e>() : Coroutine<s,e,Unit> =>
-  Coroutine((s:s) : CoStep<s,e,Unit> =>
-    s['wait'] > Date.now() ? coStepResult({...s, wait: 0}, {}) : coStepContinuation(s, checkWait())
-  )
+  Coroutine((s:s) : CoStep<s,e,Unit> => {
+    const now = Date.now()
+    console.log('--- checkwait')
+    console.log('time now:', now / 1000)
+    console.log('time in state:', s['wait'] / 1000)
+    if (s['wait'] < Date.now()) {
+      console.log('result:', s)
+      return coStepResult({...s, wait: 0}, {})
+    } else {
+      console.log('continuation:' )
+      // eslint-disable-next-line functional/no-let
+      let i = 0
+      // eslint-disable-next-line functional/no-loop-statement
+      while (i < 100) {
+        i = Date.now() - now
+      }
+      return coStepContinuation(s, checkWait())
+    }
+  })
 
 type WaitableCounter = Waitable & { readonly Counter: number}
 const waitableCounter : WaitableCounter = {wait: 0, Counter: 0}
 
 // -- from project description
-repeatUntil<WaitableCounter, string, Unit>(s => s.Counter > 10,
-  wait<WaitableCounter,string>(5).bind(() =>
-    _do(s => ({...s, Counter:s.Counter+1}))
-  )
-).fun.f(waitableCounter)
-
+export const example = () : CoStep<WaitableCounter, string, Unit> => {
+  return repeatUntil<WaitableCounter, string, Unit>(s => s.Counter > 1,
+    wait<WaitableCounter,string>(3).bind(() =>
+      _do(s => ({...s, Counter:s.Counter+1}))
+    )
+  ).fun.f(waitableCounter)
+}
 
