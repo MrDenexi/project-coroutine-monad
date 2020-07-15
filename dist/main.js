@@ -1,9 +1,48 @@
 "use strict";
+// import { id, None } from "./lib"
+// import stateSample from "./samples/state-sample"
+// import renderSample from "./samples/renderer"
+// import { myCoroutineResult } from "./samples/coroutine-sample"
+// import { myCoroutineResult } from "./samples/coroutine-project-description"
 Object.defineProperty(exports, "__esModule", { value: true });
+var immutable_1 = require("immutable");
 var lib_1 = require("./lib");
-lib_1.example();
-// console.log(id().f(8), None<number>());
-// stateSample()
-// renderSample(10)
-// coroutineSample()
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoibWFpbi5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbIi4uL21haW4udHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6Ijs7QUFLQSw2QkFBK0I7QUFFL0IsYUFBTyxFQUFFLENBQUE7QUFFVCwwQ0FBMEM7QUFDMUMsZ0JBQWdCO0FBQ2hCLG1CQUFtQjtBQUNuQixvQkFBb0IifQ==
+console.log(' --- coroutine sample');
+var safeGetVar = function (k) {
+    return lib_1.Coroutine(function (m0) {
+        if (m0.has(k)) {
+            console.log('safeGetVar', k, m0.get(k));
+            return lib_1.coStepResult(m0, m0.get(k));
+        }
+        else {
+            console.error('safeGetVar error:', k);
+            return lib_1.coStepError("not found");
+        }
+    });
+};
+var setVar = function (k, value) {
+    console.log('setVar', k, value);
+    return lib_1.Coroutine(function (m0) { return lib_1.coStepResult(m0.set(k, value), {}); });
+};
+var forceGetVar = function (k, fallbackValue) {
+    console.log('forcegetVar', k, fallbackValue);
+    return lib_1.tryCatch(safeGetVar(k), function (_) { return lib_1.Coroutine(function (m0) {
+        console.error('forcegetVar error, force it!');
+        return lib_1.coStepResult(m0.set(k, fallbackValue), fallbackValue);
+    }); });
+};
+var coroutineOne = lib_1.unitCo()({})
+    .bind(function (_) { return setVar('x', 23)
+    .bind(function (_) { return setVar('y', 999)
+    .bind(function (_) { return safeGetVar('x')
+    .bind(function (_) { return forceGetVar('q', 12890); }); }); }); });
+var coroutineTwo = lib_1.unitCo()({})
+    .bind(function (_) { return setVar('a', 11)
+    .bind(function (_) { return setVar('b', 12)
+    .bind(function (_) { return safeGetVar('a')
+    .bind(function (_) { return forceGetVar('c', 99999); }); }); }); });
+var oneResult = coroutineOne.fun.f(immutable_1.Map());
+console.log(oneResult);
+var twoResult = coroutineTwo.fun.f(immutable_1.Map());
+console.log(twoResult);
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoibWFpbi5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbIi4uL21haW4udHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IjtBQUFBLG1DQUFtQztBQUNuQyxtREFBbUQ7QUFDbkQsZ0RBQWdEO0FBQ2hELGlFQUFpRTtBQUNqRSw4RUFBOEU7O0FBRTlFLHVDQUErQjtBQUMvQiw2QkFBeUc7QUFFekcsT0FBTyxDQUFDLEdBQUcsQ0FBQyx1QkFBdUIsQ0FBQyxDQUFBO0FBT3BDLElBQU0sVUFBVSxHQUFHLFVBQUMsQ0FBVTtJQUM1QixPQUFBLGVBQVMsQ0FBRSxVQUFDLEVBQVM7UUFDbkIsSUFBSSxFQUFFLENBQUMsR0FBRyxDQUFDLENBQUMsQ0FBQyxFQUFFO1lBQ2IsT0FBTyxDQUFDLEdBQUcsQ0FBQyxZQUFZLEVBQUUsQ0FBQyxFQUFFLEVBQUUsQ0FBQyxHQUFHLENBQUMsQ0FBQyxDQUFDLENBQUMsQ0FBQTtZQUN2QyxPQUFPLGtCQUFZLENBQXdCLEVBQUUsRUFBRSxFQUFFLENBQUMsR0FBRyxDQUFDLENBQUMsQ0FBVyxDQUFDLENBQUE7U0FDcEU7YUFBTTtZQUNMLE9BQU8sQ0FBQyxLQUFLLENBQUMsbUJBQW1CLEVBQUUsQ0FBQyxDQUFDLENBQUE7WUFDckMsT0FBTyxpQkFBVyxDQUF3QixXQUFXLENBQUMsQ0FBQTtTQUN2RDtJQUNILENBQUMsQ0FBQztBQVJGLENBUUUsQ0FBQTtBQUVKLElBQU0sTUFBTSxHQUFHLFVBQUMsQ0FBUyxFQUFFLEtBQWE7SUFDdEMsT0FBTyxDQUFDLEdBQUcsQ0FBQyxRQUFRLEVBQUUsQ0FBQyxFQUFFLEtBQUssQ0FBQyxDQUFBO0lBQy9CLE9BQU8sZUFBUyxDQUFFLFVBQUMsRUFBUyxJQUFLLE9BQUEsa0JBQVksQ0FBQyxFQUFFLENBQUMsR0FBRyxDQUFDLENBQUMsRUFBRSxLQUFLLENBQUMsRUFBRSxFQUFFLENBQUMsRUFBbEMsQ0FBa0MsQ0FBQyxDQUFBO0FBQ3RFLENBQUMsQ0FBQTtBQUVELElBQU0sV0FBVyxHQUFHLFVBQUMsQ0FBUyxFQUFFLGFBQXNCO0lBQ3BELE9BQU8sQ0FBQyxHQUFHLENBQUMsYUFBYSxFQUFFLENBQUMsRUFBRSxhQUFhLENBQUMsQ0FBQTtJQUM1QyxPQUFPLGNBQVEsQ0FDYixVQUFVLENBQUMsQ0FBQyxDQUFDLEVBQ2IsVUFBQyxDQUFPLElBQUssT0FBQSxlQUFTLENBQUUsVUFBQyxFQUFVO1FBQ2pDLE9BQU8sQ0FBQyxLQUFLLENBQUMsOEJBQThCLENBQUMsQ0FBQTtRQUM3QyxPQUFPLGtCQUFZLENBQUMsRUFBRSxDQUFDLEdBQUcsQ0FBQyxDQUFDLEVBQUUsYUFBYSxDQUFDLEVBQUUsYUFBYSxDQUFDLENBQUE7SUFDOUQsQ0FBQyxDQUFDLEVBSFcsQ0FHWCxDQUNILENBQUE7QUFDSCxDQUFDLENBQUE7QUFFRCxJQUFNLFlBQVksR0FDaEIsWUFBTSxFQUFnQixDQUFPLEVBQUUsQ0FBQztLQUM3QixJQUFJLENBQUMsVUFBQyxDQUFNLElBQUssT0FBQSxNQUFNLENBQUMsR0FBRyxFQUFFLEVBQUUsQ0FBQztLQUM5QixJQUFJLENBQUMsVUFBQyxDQUFNLElBQUssT0FBQSxNQUFNLENBQUMsR0FBRyxFQUFFLEdBQUcsQ0FBQztLQUMvQixJQUFJLENBQUMsVUFBQyxDQUFNLElBQUssT0FBQSxVQUFVLENBQUMsR0FBRyxDQUFDO0tBQzlCLElBQUksQ0FBQyxVQUFDLENBQVEsSUFBSyxPQUFBLFdBQVcsQ0FBQyxHQUFHLEVBQUUsS0FBSyxDQUFDLEVBQXZCLENBQXVCLENBQUMsRUFENUIsQ0FDNEIsQ0FDN0MsRUFIZSxDQUdmLENBQ0YsRUFMZSxDQUtmLENBQ0YsQ0FBQTtBQUVMLElBQU0sWUFBWSxHQUFHLFlBQU0sRUFBZ0IsQ0FBTyxFQUFFLENBQUM7S0FDbEQsSUFBSSxDQUFDLFVBQUMsQ0FBTSxJQUFLLE9BQUEsTUFBTSxDQUFDLEdBQUcsRUFBRSxFQUFFLENBQUM7S0FDOUIsSUFBSSxDQUFDLFVBQUMsQ0FBTSxJQUFLLE9BQUEsTUFBTSxDQUFDLEdBQUcsRUFBRSxFQUFFLENBQUM7S0FDOUIsSUFBSSxDQUFDLFVBQUMsQ0FBTSxJQUFLLE9BQUEsVUFBVSxDQUFDLEdBQUcsQ0FBQztLQUM5QixJQUFJLENBQUMsVUFBQyxDQUFRLElBQUssT0FBQSxXQUFXLENBQUMsR0FBRyxFQUFFLEtBQUssQ0FBQyxFQUF2QixDQUF1QixDQUFDLEVBRDVCLENBQzRCLENBQzdDLEVBSGUsQ0FHZixDQUNGLEVBTGUsQ0FLZixDQUNGLENBQUE7QUFHSCxJQUFNLFNBQVMsR0FBRyxZQUFZLENBQUMsR0FBRyxDQUFDLENBQUMsQ0FBQyxlQUFHLEVBQUUsQ0FBQyxDQUFBO0FBQzNDLE9BQU8sQ0FBQyxHQUFHLENBQUMsU0FBUyxDQUFDLENBQUE7QUFDdEIsSUFBTSxTQUFTLEdBQUcsWUFBWSxDQUFDLEdBQUcsQ0FBQyxDQUFDLENBQUMsZUFBRyxFQUFFLENBQUMsQ0FBQTtBQUMzQyxPQUFPLENBQUMsR0FBRyxDQUFDLFNBQVMsQ0FBQyxDQUFBIn0=

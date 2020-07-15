@@ -26,17 +26,25 @@ export type Coroutine<s,e,a> ={
   // eslint-disable-next-line functional/no-mixed-type
   readonly bind: <b>( f:((x: a) => Coroutine<s,e,b>)) => Coroutine<s,e,b>,
   readonly bindF: <b>(f: Fun<a,Coroutine<s,e,b>>) => Coroutine<s,e,b>,
+  readonly suspend: <b>( f:((x: a) => Coroutine<s,e,b>)) => Coroutine<s,e,b>,
+  readonly suspendF:  <b>(f: Fun<a,Coroutine<s,e,b>>) => Coroutine<s,e,b>,
   readonly concurrent: (cor: Coroutine<s,e,a>) => Coroutine<s,e,a>
   readonly parallel: <b>(cor: Coroutine<s,e,b>) => Coroutine<s,e,Pair<a,b>>
 }
 
-export const Coroutine = <s,e,a>(f: (s:s) => CoStep<s,e,a>) : Coroutine<s,e,a> => ({
+export const Coroutine = <s,e,a>(f: (s0:s) => CoStep<s,e,a>) : Coroutine<s,e,a> => ({
   fun: Fun(f),
   bind: function<a,b>(this:Coroutine<s,e,a>, f:(_:a) => Coroutine<s,e,b>) : Coroutine<s,e,b> {
     return bindCo<s,e>()(Fun<a,Coroutine<s,e,b>>(f)).f(this)
   },
   bindF: function<b>(this: Coroutine<s,e,a>, f: Fun<a,Coroutine<s,e,b>>) : Coroutine<s,e,b> {
     return bindCo<s,e>()(f).f(this)
+  },
+  suspend: function<b>(this: Coroutine<s,e,a>, f:(_:a) => Coroutine<s,e,b>) : Coroutine<s,e,b> {
+    return Coroutine((s1:s) => coStepContinuation(s1, this.bind(f)))
+  },
+  suspendF: function<b>(this: Coroutine<s,e,a>, f: Fun<a,Coroutine<s,e,b>>) : Coroutine<s,e,b> {
+    return Coroutine((s1:s) => coStepContinuation(s1, this.bindF(f)))
   },
   concurrent: function(this: Coroutine<s,e,a>, cor: Coroutine<s,e,a>) : Coroutine<s,e,a> {
     return any(this, cor)
@@ -170,6 +178,7 @@ export const all = <s,e,a,b>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,b>) : Cor
           return o2
         }
 
+        // --- 📝📝 official agreement 📝📝 ---
         // I am really sure unitCo spits out a result
         // so hereby i am allowed to typecast that
         const o2Result = o2.value.value as CoResult<s,b>
@@ -205,7 +214,7 @@ export const all = <s,e,a,b>(c1 : Coroutine<s,e,a>, c2 : Coroutine<s,e,b>) : Cor
     }
   })
 
-const repeatUntil = <s,e,a>(predicate : ((_:s) => boolean), cor : Coroutine<s,e,a>) : Coroutine<s,e,a> =>
+export const repeatUntil = <s,e,a>(predicate : ((_:s) => boolean), cor : Coroutine<s,e,a>) : Coroutine<s,e,a> =>
   Coroutine( (s0:s) => {
     const ran = cor.fun.f(s0)
     if (ran.kind == "left") {
@@ -226,19 +235,19 @@ const repeatUntil = <s,e,a>(predicate : ((_:s) => boolean), cor : Coroutine<s,e,
   })
 
 
-const _do = <s,e>(f : ((_:s) => s)) : Coroutine<s,e,Unit> =>
+export const _do = <s,e>(f : ((_:s) => s)) : Coroutine<s,e,Unit> =>
   Coroutine<s,e,Unit>(s => coStepResult(f(s), {}))
 
-type Waitable  = {readonly wait : number}
+export type Waitable  = {readonly wait : number}
 
-const wait = <s extends Waitable,e>(sec : number) : Coroutine<s,e,Unit> => {
+export const wait = <s extends Waitable,e>(sec : number) : Coroutine<s,e,Unit> => {
   console.log('start wait')
   return Coroutine<s,e,Unit>(s0 => coStepResult({...s0, wait: (Date.now() + sec * 1000)}, {}))
     .bind<Unit>( (_: Unit) => checkWait())
 }
 
 // helper function for wait
-const checkWait = <s extends Waitable, e>() : Coroutine<s,e,Unit> =>
+export const checkWait = <s extends Waitable, e>() : Coroutine<s,e,Unit> =>
   Coroutine((s:s) : CoStep<s,e,Unit> => {
     const now = Date.now()
     console.log('--- checkwait')
@@ -258,16 +267,3 @@ const checkWait = <s extends Waitable, e>() : Coroutine<s,e,Unit> =>
       return coStepContinuation(s, checkWait())
     }
   })
-
-type WaitableCounter = Waitable & { readonly Counter: number}
-const waitableCounter : WaitableCounter = {wait: 0, Counter: 0}
-
-// -- from project description
-export const example = () : CoStep<WaitableCounter, string, Unit> => {
-  return repeatUntil<WaitableCounter, string, Unit>(s => s.Counter > 1,
-    wait<WaitableCounter,string>(3).bind(() =>
-      _do(s => ({...s, Counter:s.Counter+1}))
-    )
-  ).fun.f(waitableCounter)
-}
-
