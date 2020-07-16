@@ -5,9 +5,7 @@
 // import { myCoroutineResult } from "./samples/coroutine-project-description"
 
 import { Map } from 'immutable'
-import { Fun, Unit, Coroutine, mapCo, unitCo, coStepResult, coStepError, tryCatch, suspend } from './lib'
-
-console.log(' --- coroutine sample')
+import { Fun, Unit, Coroutine, mapCo, unitCo, coStepResult, coStepError, tryCatch, suspend, any, all } from './lib'
 
 // eslint-disable-next-line functional/prefer-readonly-type
 type Memory = Map<string, number>
@@ -41,7 +39,7 @@ const forceGetVar = (k: string, fallbackValue : number) : Coroutine<Memory,Error
   )
 }
 
-const coroutineOne : Coroutine<Memory,Error,number> =
+const coOne : Coroutine<Memory,Error,number> =
   unitCo<Memory,Error>()<Unit>({})
     .bind((_:Unit) => setVar('x', 23)
       .bind((_:Unit) => setVar('y', 999)
@@ -51,17 +49,79 @@ const coroutineOne : Coroutine<Memory,Error,number> =
       )
     )
 
-const coroutineTwo = unitCo<Memory,Error>()<Unit>({})
-  .bind((_:Unit) => setVar('a', 11)
-    .bind((_:Unit) => setVar('b', 12)
-      .bind((_:Unit) => safeGetVar('a')
-        .bind((_:number) => forceGetVar('c', 99999))
+const coTwo : Coroutine<Memory,Error,number> =
+  unitCo<Memory,Error>()<Unit>({})
+    .bind((_:Unit) => setVar('a', 11)
+      .bind((_:Unit) => setVar('b', 12)
+        .bind((_:Unit) => safeGetVar('a')
+          .bind((_:number) => forceGetVar('c', 99999))
+        )
       )
     )
-  )
+
+// const resultOne = coOne.fun.f(Map())
+// console.log(resultOne)
+// const resultTwo = coTwo.fun.f(Map())
+// console.log(resultTwo)
+
+const coSuspendOne : Coroutine<Memory,Error,number> =
+  unitCo<Memory,Error>()<Unit>({})
+    .suspend((_:Unit) => setVar('a', 11)
+      .suspend((_:Unit) => setVar('b', 13)
+        .suspend((_:Unit) => safeGetVar('a')
+          .suspend((_:number) => forceGetVar('c', 99)
+            .suspend((_:number) => setVar('d', 15)
+              .suspend((_:Unit) => safeGetVar('b')
+                .suspend((_:Unit) => safeGetVar('d')) // is 15
+              )
+            )
+          )
+        )
+      )
+    )
+
+const coSuspendTwo : Coroutine<Memory,Error,number> =
+  unitCo<Memory,Error>()<Unit>({})
+    .suspend((_:Unit) => setVar('a', 2)
+      .suspend((_:Unit) => setVar('b', 30)
+        .suspend((_:Unit) => safeGetVar('a')
+          .suspend((_:number) => forceGetVar('c', 44)
+          )
+        )
+      )
+    )
+
+// const resultSuspendOne = coSuspendOne.fun.f(Map())
+// console.log(resultSuspendOne)
+// const resultSuspendTwo = coSuspendTwo.fun.f(Map())
+// console.log(resultSuspendTwo)
+
+// const allOneTwo = all(coSuspendOne, coSuspendTwo).fun.f(Map())
+// console.log(allOneTwo)
+// console.log(allOneTwo.value)
+// const parallelOneTwo = coSuspendOne.parallel(coSuspendTwo).fun.f(Map())
+// console.log(parallelOneTwo)
+// console.log(parallelOneTwo.value)
+
+// const anyOneTwo = any(coSuspendOne, coSuspendTwo).fun.f(Map())
+// console.log(anyOneTwo)
+// const concurrentOneTwo = coSuspendOne.concurrent(coSuspendTwo).fun.f(Map())
+// console.log(concurrentOneTwo)
+
+import { Waitable, CoStep, wait, _do, repeatUntil } from './lib'
+
+// -- from project description
+type WaitableCounter = Waitable & { readonly Counter: number}
+const waitableCounter : WaitableCounter = {wait: 0, Counter: 0}
+
+export const example = () : CoStep<WaitableCounter, string, Unit> => {
+  return repeatUntil<WaitableCounter, string, Unit>(s => s.Counter > 6,
+    wait<WaitableCounter,string>(3).bind(() =>
+      _do(s => ({...s, Counter:s.Counter+1}))
+    )
+  ).fun.f(waitableCounter)
+}
+
+// console.log(example())
 
 
-const oneResult = coroutineOne.fun.f(Map())
-console.log(oneResult)
-const twoResult = coroutineTwo.fun.f(Map())
-console.log(twoResult)
