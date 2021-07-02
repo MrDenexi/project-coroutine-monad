@@ -1,6 +1,5 @@
 # Project Coroutine Monad
 [Project Coroutine Monad of the minor Software Engineering](https://github.com/hogeschool/Software-Engineering-Minor/blob/master/Projects/project4%20-%20coroutine%20monad.md)
-made by Rens Moring (0934908@hr.nl)  
 
 Install npm packages on first use
 
